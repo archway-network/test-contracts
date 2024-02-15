@@ -106,15 +106,28 @@ pub mod execute {
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetCount {} => to_json_binary(&query::count(deps)?),
+        QueryMsg::DumpState {} => to_json_binary(&query::dump_state(deps)?),
     }
 }
 
 pub mod query {
+    use crate::msg::GetDumpStateResponse;
+
     use super::*;
 
     pub fn count(deps: Deps) -> StdResult<GetCountResponse> {
         let state = STATE.load(deps.storage)?;
         Ok(GetCountResponse { count: state.count })
+    }
+
+    pub fn dump_state(deps: Deps) -> StdResult<GetDumpStateResponse> {
+        let state = STATE.load(deps.storage)?;
+        Ok(GetDumpStateResponse {
+            count: state.count,
+            owner: state.owner.to_string(),
+            connection_id: state.connection_id,
+            counterparty_version: state.counterparty_version,
+        })
     }
 }
 
