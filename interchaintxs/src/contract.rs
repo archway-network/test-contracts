@@ -48,6 +48,10 @@ pub fn execute(
 }
 
 pub mod execute {
+    use cosmwasm_std::CosmosMsg;
+
+    use crate::state::MsgRegisterInterchainAccount;
+
     use super::*;
 
     pub fn increment(deps: DepsMut) -> Result<Response, ContractError> {
@@ -75,11 +79,24 @@ pub mod execute {
         let state = STATE.load(deps.storage)?;
         let connection_id = state.connection_id;
         let interchain_account_id = state.count.to_string();
+
+        let regsiter_msg = MsgRegisterInterchainAccount{
+            from_address: from_address.clone(),
+            connection_id: connection_id.clone(),
+            interchain_account_id: interchain_account_id.clone(),
+        };
+
+        let register_stargate_msg = CosmosMsg::Stargate { 
+            type_url: "/archway.interchaintxs.v1.MsgRegisterInterchainAccount".to_string(), 
+            value: Binary::from(prost::Message::encode_to_vec(&regsiter_msg)),
+        };
+
         Ok(Response::new()
             .add_attribute("action", "register")
             .add_attribute("account_owner", from_address)
             .add_attribute("connection_id", connection_id)
             .add_attribute("interchain_account_id", interchain_account_id)
+            .add_message(register_stargate_msg)
         )
     }
 }
