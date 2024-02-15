@@ -9,6 +9,7 @@ pub struct State {
     pub count: i32,
     pub owner: Addr,
     pub connection_id: String,
+    pub counterparty_version: String,
 }
 
 pub const STATE: Item<State> = Item::new("state");

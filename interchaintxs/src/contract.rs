@@ -4,7 +4,7 @@ use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Resp
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, GetCountResponse, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, GetCountResponse, InstantiateMsg, QueryMsg, SudoMsg};
 use crate::state::{State, STATE};
 
 // version info for migration info
@@ -22,6 +22,7 @@ pub fn instantiate(
         count: msg.count,
         owner: info.sender.clone(),
         connection_id: msg.connection_id.clone(),
+        counterparty_version: "".to_string(),
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     STATE.save(deps.storage, &state)?;
@@ -114,6 +115,29 @@ pub mod query {
     pub fn count(deps: Deps) -> StdResult<GetCountResponse> {
         let state = STATE.load(deps.storage)?;
         Ok(GetCountResponse { count: state.count })
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn sudo(
+    deps: DepsMut,
+    env: Env,
+    msg: SudoMsg,
+) -> Result<Response, ContractError> {
+    match msg {
+        SudoMsg::OpenAck {port_id, channel_id, counterparty_channel_id, counterparty_version,} => sudo::open_ack(deps, env, port_id, channel_id, counterparty_channel_id, counterparty_version),
+    }
+}
+
+pub mod sudo {
+    use super::*;
+
+    pub fn open_ack(deps: DepsMut, _env: Env, _port_id: String, _channel_id: String, _counterparty_channel_id: String, counterparty_version: String) -> Result<Response, ContractError> {
+        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+            state.counterparty_version = counterparty_version;
+            Ok(state)
+        })?;
+        Ok(Response::new().add_attribute("action", "registered ica"))
     }
 }
 

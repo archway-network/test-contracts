@@ -26,3 +26,13 @@ pub enum QueryMsg {
 pub struct GetCountResponse {
     pub count: i32,
 }
+
+#[cw_serde]
+pub enum SudoMsg  {
+    OpenAck {
+        port_id: String,
+        channel_id: String,
+        counterparty_channel_id: String,
+        counterparty_version: String,
+    },
+}
