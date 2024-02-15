@@ -3,12 +3,14 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub count: i32,
+    pub connection_id: String,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
     Increment {},
     Reset { count: i32 },
+    Register {},
 }
 
 #[cw_serde]
