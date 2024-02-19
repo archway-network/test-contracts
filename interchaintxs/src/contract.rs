@@ -44,14 +44,19 @@ pub fn execute(
     match msg {
         ExecuteMsg::Increment {} => execute::increment(deps),
         ExecuteMsg::Reset { count } => execute::reset(deps, info, count),
-        ExecuteMsg::Register {  } => execute::register(deps.as_ref(), env),
+        ExecuteMsg::Register {} => execute::register(deps.as_ref(), env),
+        ExecuteMsg::Send {
+            to_address,
+            amount,
+            denom,
+        } => execute::send(deps.as_ref(), env, info, to_address, amount, denom),
     }
 }
 
 pub mod execute {
     use cosmwasm_std::CosmosMsg;
 
-    use crate::state::MsgRegisterInterchainAccount;
+    use crate::state::{MsgRegisterInterchainAccount, MsgSubmitTx};
 
     use super::*;
 
@@ -81,14 +86,14 @@ pub mod execute {
         let connection_id = state.connection_id;
         let interchain_account_id = state.count.to_string();
 
-        let regsiter_msg = MsgRegisterInterchainAccount{
+        let regsiter_msg = MsgRegisterInterchainAccount {
             from_address: from_address.clone(),
             connection_id: connection_id.clone(),
             interchain_account_id: interchain_account_id.clone(),
         };
 
-        let register_stargate_msg = CosmosMsg::Stargate { 
-            type_url: "/archway.interchaintxs.v1.MsgRegisterInterchainAccount".to_string(), 
+        let register_stargate_msg = CosmosMsg::Stargate {
+            type_url: "/archway.interchaintxs.v1.MsgRegisterInterchainAccount".to_string(),
             value: Binary::from(prost::Message::encode_to_vec(&regsiter_msg)),
         };
 
@@ -97,8 +102,32 @@ pub mod execute {
             .add_attribute("account_owner", from_address)
             .add_attribute("connection_id", connection_id)
             .add_attribute("interchain_account_id", interchain_account_id)
-            .add_message(register_stargate_msg)
-        )
+            .add_message(register_stargate_msg))
+    }
+
+    pub fn send(
+        deps: Deps,
+        env: Env,
+        info: MessageInfo,
+        to_address: String,
+        amount: u128,
+        denom: String,
+    ) -> Result<Response, ContractError> {
+        let submittx_msg = MsgSubmitTx {
+            from_address: todo!(),
+            interchain_account_id: todo!(),
+            connection_id: todo!(),
+            msgs: todo!(),
+            memo: todo!(),
+            timeout: todo!(),
+        };
+        let submittx_stargate_msg = CosmosMsg::Stargate {
+            type_url: "/archway.interchaintxs.v1.MsgSubmitTx".to_string(),
+            value: Binary::from(prost::Message::encode_to_vec(&submittx_msg)),
+        };
+        Ok(Response::new()
+            .add_attribute("action", "send")
+            .add_message(submittx_stargate_msg))
     }
 }
 
@@ -132,22 +161,41 @@ pub mod query {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn sudo(
-    deps: DepsMut,
-    env: Env,
-    msg: SudoMsg,
-) -> Result<Response, ContractError> {
+pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
-        SudoMsg::OpenAck {port_id, channel_id, counterparty_channel_id, counterparty_version,} => sudo::open_ack(deps, env, port_id, channel_id, counterparty_channel_id, counterparty_version),
+        SudoMsg::OpenAck {
+            port_id,
+            channel_id,
+            counterparty_channel_id,
+            counterparty_version,
+        } => sudo::open_ack(
+            deps,
+            env,
+            port_id,
+            channel_id,
+            counterparty_channel_id,
+            counterparty_version,
+        ),
     }
 }
 
 pub mod sudo {
+    use crate::msg::OpenAckVersion;
+
     use super::*;
 
-    pub fn open_ack(deps: DepsMut, _env: Env, _port_id: String, _channel_id: String, _counterparty_channel_id: String, counterparty_version: String) -> Result<Response, ContractError> {
+    pub fn open_ack(
+        deps: DepsMut,
+        _env: Env,
+        _port_id: String,
+        _channel_id: String,
+        _counterparty_channel_id: String,
+        counterparty_version: String,
+    ) -> Result<Response, ContractError> {
         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            state.counterparty_version = counterparty_version;
+            let open_ack_version: Result<OpenAckVersion, _> =
+                serde_json::from_str(&counterparty_version);
+            state.counterparty_version = open_ack_version.unwrap().address.clone();
             Ok(state)
         })?;
         Ok(Response::new().add_attribute("action", "registered ica"))
@@ -164,7 +212,10 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17, connection_id: "connection_id".to_string()};
+        let msg = InstantiateMsg {
+            count: 17,
+            connection_id: "connection_id".to_string(),
+        };
         let info = mock_info("creator", &coins(1000, "earth"));
 
         // we can just call .unwrap() to assert this was a success
@@ -181,7 +232,10 @@ mod tests {
     fn increment() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17, connection_id: "connection_id".to_string()};
+        let msg = InstantiateMsg {
+            count: 17,
+            connection_id: "connection_id".to_string(),
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -200,7 +254,10 @@ mod tests {
     fn reset() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17, connection_id: "connection_id".to_string()};
+        let msg = InstantiateMsg {
+            count: 17,
+            connection_id: "connection_id".to_string(),
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 

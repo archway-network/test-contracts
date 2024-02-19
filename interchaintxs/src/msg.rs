@@ -11,6 +11,11 @@ pub enum ExecuteMsg {
     Increment {},
     Reset { count: i32 },
     Register {},
+    Send {
+        to_address: String,
+        amount: u128,
+        denom: String,
+    },
 }
 
 #[cw_serde]
@@ -46,4 +51,14 @@ pub enum SudoMsg  {
         counterparty_channel_id: String,
         counterparty_version: String,
     },
+}
+
+#[cw_serde]
+pub struct OpenAckVersion {
+    pub version: String,
+    pub controller_connection_id: String,
+    pub host_connection_id: String,
+    pub address: String,
+    pub encoding: String,
+    pub tx_type: String,
 }
