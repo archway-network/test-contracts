@@ -11,10 +11,9 @@ pub enum ExecuteMsg {
     Increment {},
     Reset { count: i32 },
     Register {},
-    Send {
-        to_address: String,
-        amount: u128,
-        denom: String,
+    Vote {
+        proposal_id: u64,
+        option: i32,
     },
 }
 

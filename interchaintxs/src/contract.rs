@@ -10,6 +10,7 @@ use crate::state::{State, STATE};
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:interchaintxs";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_TIMEOUT_SECONDS: u64 = 60 * 60 * 24 * 7 * 2;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -45,18 +46,15 @@ pub fn execute(
         ExecuteMsg::Increment {} => execute::increment(deps),
         ExecuteMsg::Reset { count } => execute::reset(deps, info, count),
         ExecuteMsg::Register {} => execute::register(deps.as_ref(), env),
-        ExecuteMsg::Send {
-            to_address,
-            amount,
-            denom,
-        } => execute::send(deps.as_ref(), env, info, to_address, amount, denom),
+        ExecuteMsg::Vote { proposal_id, option} => execute::vote(deps.as_ref(), env, info, proposal_id, option),
     }
 }
 
 pub mod execute {
     use cosmwasm_std::CosmosMsg;
+    use prost::Message;
 
-    use crate::state::{MsgRegisterInterchainAccount, MsgSubmitTx};
+    use crate::state::{MsgRegisterInterchainAccount, MsgSubmitTx, MsgVote};
 
     use super::*;
 
@@ -105,21 +103,29 @@ pub mod execute {
             .add_message(register_stargate_msg))
     }
 
-    pub fn send(
-        deps: Deps,
-        env: Env,
-        info: MessageInfo,
-        to_address: String,
-        amount: u128,
-        denom: String,
-    ) -> Result<Response, ContractError> {
+    pub fn vote(deps: Deps, env: Env, info: MessageInfo, proposal_id: u64, option: i32,) -> Result<Response, ContractError> {
+        let state = STATE.load(deps.storage)?;
+        let connection_id = state.connection_id;
+        let interchain_account_id = state.count.to_string();
+        let from_address = state.counterparty_version;
+
+        let vote_msg = MsgVote {
+            proposal_id: proposal_id,
+            voter: from_address.clone(),
+            option: option,
+        };
+        
+        let vote_msg_stargate_msg = prost_types::Any {
+            type_url: "/cosmos.gov.v1.MsgVote".to_string(),
+            value: vote_msg.encode_to_vec(),
+        };
         let submittx_msg = MsgSubmitTx {
-            from_address: todo!(),
-            interchain_account_id: todo!(),
-            connection_id: todo!(),
-            msgs: todo!(),
-            memo: todo!(),
-            timeout: todo!(),
+            from_address: from_address.clone(),
+            interchain_account_id: interchain_account_id.clone(),
+            connection_id: connection_id.clone(),
+            msgs: vec![vote_msg_stargate_msg],
+            memo: "sent from contract".to_string(),
+            timeout: DEFAULT_TIMEOUT_SECONDS,
         };
         let submittx_stargate_msg = CosmosMsg::Stargate {
             type_url: "/archway.interchaintxs.v1.MsgSubmitTx".to_string(),
