@@ -8,7 +8,7 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
 use crate::state::{State, STATE};
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:interchaintxs";
+const CONTRACT_NAME: &str = "crates.io:custodian";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60 * 60 * 24 * 7 * 2;
 
@@ -70,7 +70,7 @@ pub mod execute {
         };
 
         let register_stargate_msg = CosmosMsg::Stargate {
-            type_url: "/archway.interchaintxs.v1.MsgRegisterInterchainAccount".to_string(),
+            type_url: "/archway.custodian.v1.MsgRegisterInterchainAccount".to_string(),
             value: Binary::from(prost::Message::encode_to_vec(&regsiter_msg)),
         };
 
@@ -109,7 +109,7 @@ pub mod execute {
             timeout: timeout,
         };
         let submittx_stargate_msg = CosmosMsg::Stargate {
-            type_url: "/archway.interchaintxs.v1.MsgSubmitTx".to_string(),
+            type_url: "/archway.custodian.v1.MsgSubmitTx".to_string(),
             value: Binary::from(prost::Message::encode_to_vec(&submittx_msg)),
         };
         Ok(Response::new()
