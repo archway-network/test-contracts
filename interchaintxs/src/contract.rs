@@ -4,7 +4,7 @@ use cosmwasm_std::{to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Resp
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, GetCountResponse, InstantiateMsg, QueryMsg, SudoMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
 use crate::state::{State, STATE};
 
 // version info for migration info
@@ -20,10 +20,10 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let state = State {
-        count: msg.count,
         owner: info.sender.clone(),
         connection_id: msg.connection_id.clone(),
-        counterparty_version: "".to_string(),
+        ica_address: "".to_string(),
+        voted: false,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     STATE.save(deps.storage, &state)?;
@@ -31,7 +31,6 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender)
-        .add_attribute("count", msg.count.to_string())
         .add_attribute("connection_id", msg.connection_id))
 }
 
@@ -39,14 +38,12 @@ pub fn instantiate(
 pub fn execute(
     deps: DepsMut,
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Increment {} => execute::increment(deps),
-        ExecuteMsg::Reset { count } => execute::reset(deps, info, count),
         ExecuteMsg::Register {} => execute::register(deps.as_ref(), env),
-        ExecuteMsg::Vote { proposal_id, option} => execute::vote(deps.as_ref(), env, info, proposal_id, option),
+        ExecuteMsg::Vote { proposal_id, option} => execute::vote(deps.as_ref(), env,  proposal_id, option),
     }
 }
 
@@ -58,31 +55,11 @@ pub mod execute {
 
     use super::*;
 
-    pub fn increment(deps: DepsMut) -> Result<Response, ContractError> {
-        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            state.count += 1;
-            Ok(state)
-        })?;
-
-        Ok(Response::new().add_attribute("action", "increment"))
-    }
-
-    pub fn reset(deps: DepsMut, info: MessageInfo, count: i32) -> Result<Response, ContractError> {
-        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            if info.sender != state.owner {
-                return Err(ContractError::Unauthorized {});
-            }
-            state.count = count;
-            Ok(state)
-        })?;
-        Ok(Response::new().add_attribute("action", "reset"))
-    }
-
     pub fn register(deps: Deps, env: Env) -> Result<Response, ContractError> {
         let from_address = env.contract.address.to_string();
         let state = STATE.load(deps.storage)?;
         let connection_id = state.connection_id;
-        let interchain_account_id = state.count.to_string();
+        let interchain_account_id = state.owner.to_string();
 
         let regsiter_msg = MsgRegisterInterchainAccount {
             from_address: from_address.clone(),
@@ -103,15 +80,16 @@ pub mod execute {
             .add_message(register_stargate_msg))
     }
 
-    pub fn vote(deps: Deps, env: Env, info: MessageInfo, proposal_id: u64, option: i32,) -> Result<Response, ContractError> {
+    pub fn vote(deps: Deps, env: Env, proposal_id: u64, option: i32,) -> Result<Response, ContractError> {
         let state = STATE.load(deps.storage)?;
         let connection_id = state.connection_id;
-        let interchain_account_id = state.count.to_string();
-        let from_address = state.counterparty_version;
+        let interchain_account_id = state.owner.to_string();
+        let from_address = env.contract.address.to_string();
+        let ica_address = state.ica_address;
 
         let vote_msg = MsgVote {
             proposal_id: proposal_id,
-            voter: from_address.clone(),
+            voter: ica_address.clone(),
             option: option,
         };
         
@@ -140,7 +118,6 @@ pub mod execute {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetCount {} => to_json_binary(&query::count(deps)?),
         QueryMsg::DumpState {} => to_json_binary(&query::dump_state(deps)?),
     }
 }
@@ -150,18 +127,13 @@ pub mod query {
 
     use super::*;
 
-    pub fn count(deps: Deps) -> StdResult<GetCountResponse> {
-        let state = STATE.load(deps.storage)?;
-        Ok(GetCountResponse { count: state.count })
-    }
-
     pub fn dump_state(deps: Deps) -> StdResult<GetDumpStateResponse> {
         let state = STATE.load(deps.storage)?;
         Ok(GetDumpStateResponse {
-            count: state.count,
             owner: state.owner.to_string(),
             connection_id: state.connection_id,
-            counterparty_version: state.counterparty_version,
+            ica_address: state.ica_address,
+            voted: state.voted,
         })
     }
 }
@@ -182,11 +154,12 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             counterparty_channel_id,
             counterparty_version,
         ),
+        SudoMsg::Response { request, data } => sudo::response(deps, request, data),
     }
 }
 
 pub mod sudo {
-    use crate::msg::OpenAckVersion;
+    use crate::msg::{OpenAckVersion, RequestPacket};
 
     use super::*;
 
@@ -201,15 +174,25 @@ pub mod sudo {
         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
             let open_ack_version: Result<OpenAckVersion, _> =
                 serde_json::from_str(&counterparty_version);
-            state.counterparty_version = open_ack_version.unwrap().address.clone();
+            state.ica_address = open_ack_version.unwrap().address.clone();
             Ok(state)
         })?;
         Ok(Response::new().add_attribute("action", "registered ica"))
+    }
+
+    pub fn response(deps: DepsMut, _request: RequestPacket, _data: Binary) -> Result<Response, ContractError> {
+        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+            state.voted = true;
+            Ok(state)
+        })?;
+        Ok(Response::new().add_attribute("action", "did action"))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::msg::GetDumpStateResponse;
+
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coins, from_json};
@@ -219,7 +202,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            count: 17,
             connection_id: "connection_id".to_string(),
         };
         let info = mock_info("creator", &coins(1000, "earth"));
@@ -229,61 +211,11 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: GetCountResponse = from_json(&res).unwrap();
-        assert_eq!(17, value.count);
-    }
-
-    #[test]
-    fn increment() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            count: 17,
-            connection_id: "connection_id".to_string(),
-        };
-        let info = mock_info("creator", &coins(2, "token"));
-        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // beneficiary can release it
-        let info = mock_info("anyone", &coins(2, "token"));
-        let msg = ExecuteMsg::Increment {};
-        let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // should increase counter by 1
-        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: GetCountResponse = from_json(&res).unwrap();
-        assert_eq!(18, value.count);
-    }
-
-    #[test]
-    fn reset() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            count: 17,
-            connection_id: "connection_id".to_string(),
-        };
-        let info = mock_info("creator", &coins(2, "token"));
-        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // beneficiary can release it
-        let unauth_info = mock_info("anyone", &coins(2, "token"));
-        let msg = ExecuteMsg::Reset { count: 5 };
-        let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
-        match res {
-            Err(ContractError::Unauthorized {}) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-
-        // only the original creator can reset the counter
-        let auth_info = mock_info("creator", &coins(2, "token"));
-        let msg = ExecuteMsg::Reset { count: 5 };
-        let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
-
-        // should now be 5
-        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: GetCountResponse = from_json(&res).unwrap();
-        assert_eq!(5, value.count);
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::DumpState {}).unwrap();
+        let value: GetDumpStateResponse = from_json(&res).unwrap();
+        assert_eq!("connection_id".to_string(), value.connection_id);
+        assert_eq!("creator", value.owner);
+        assert_eq!(false, value.voted);
+        assert_eq!("", value.ica_address);
     }
 }

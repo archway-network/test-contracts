@@ -1,15 +1,13 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Binary;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub count: i32,
     pub connection_id: String,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Increment {},
-    Reset { count: i32 },
     Register {},
     Vote {
         proposal_id: u64,
@@ -20,26 +18,17 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    // GetCount returns the current count as a json-encoded number
-    #[returns(GetCountResponse)]
-    GetCount {},
     // DumpState returns the current state
     #[returns(GetDumpStateResponse)]
     DumpState {},
 }
 
-// We define a custom struct for each query response
-#[cw_serde]
-pub struct GetCountResponse {
-    pub count: i32,
-}
-
 #[cw_serde]
 pub struct GetDumpStateResponse {
-    pub count: i32,
     pub owner: String,
     pub connection_id: String,
-    pub counterparty_version: String,
+    pub ica_address: String,
+    pub voted: bool,
 }
 
 #[cw_serde]
@@ -50,6 +39,10 @@ pub enum SudoMsg  {
         counterparty_channel_id: String,
         counterparty_version: String,
     },
+    Response {
+        request: RequestPacket,
+        data: Binary,
+    }
 }
 
 #[cw_serde]
@@ -60,4 +53,22 @@ pub struct OpenAckVersion {
     pub address: String,
     pub encoding: String,
     pub tx_type: String,
+}
+
+#[cw_serde]
+pub struct RequestPacket {
+    pub sequence: Option<u64>,
+    pub source_port: Option<String>,
+    pub source_channel: Option<String>,
+    pub destination_port: Option<String>,
+    pub destination_channel: Option<String>,
+    pub data: Option<Binary>,
+    pub timeout_height: Option<RequestPacketTimeoutHeight>,
+    pub timeout_timestamp: Option<u64>,
+}
+
+#[cw_serde]
+pub struct RequestPacketTimeoutHeight {
+    pub revision_number: Option<u64>,
+    pub revision_height: Option<u64>,
 }
