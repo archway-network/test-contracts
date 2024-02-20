@@ -12,6 +12,7 @@ pub enum ExecuteMsg {
     Vote {
         proposal_id: u64,
         option: i32,
+        tiny_timeout: bool,
     },
 }
 
@@ -29,6 +30,8 @@ pub struct GetDumpStateResponse {
     pub connection_id: String,
     pub ica_address: String,
     pub voted: bool,
+    pub errors: String,
+    pub timeout: bool,
 }
 
 #[cw_serde]
@@ -42,7 +45,14 @@ pub enum SudoMsg  {
     Response {
         request: RequestPacket,
         data: Binary,
-    }
+    },
+    Error {
+        request: RequestPacket,
+        details: String,
+    },
+    Timeout {
+        request: RequestPacket,
+    },
 }
 
 #[cw_serde]

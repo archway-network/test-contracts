@@ -24,6 +24,8 @@ pub fn instantiate(
         connection_id: msg.connection_id.clone(),
         ica_address: "".to_string(),
         voted: false,
+        errors: "".to_string(),
+        timeout: false,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     STATE.save(deps.storage, &state)?;
@@ -43,7 +45,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Register {} => execute::register(deps.as_ref(), env),
-        ExecuteMsg::Vote { proposal_id, option} => execute::vote(deps.as_ref(), env,  proposal_id, option),
+        ExecuteMsg::Vote { proposal_id, option, tiny_timeout} => execute::vote(deps.as_ref(), env,  proposal_id, option, tiny_timeout),
     }
 }
 
@@ -80,7 +82,7 @@ pub mod execute {
             .add_message(register_stargate_msg))
     }
 
-    pub fn vote(deps: Deps, env: Env, proposal_id: u64, option: i32,) -> Result<Response, ContractError> {
+    pub fn vote(deps: Deps, env: Env, proposal_id: u64, option: i32, tiny_timeout: bool) -> Result<Response, ContractError> {
         let state = STATE.load(deps.storage)?;
         let connection_id = state.connection_id;
         let interchain_account_id = state.owner.to_string();
@@ -97,13 +99,14 @@ pub mod execute {
             type_url: "/cosmos.gov.v1.MsgVote".to_string(),
             value: vote_msg.encode_to_vec(),
         };
+        let timeout = if tiny_timeout { 1 } else { DEFAULT_TIMEOUT_SECONDS };
         let submittx_msg = MsgSubmitTx {
             from_address: from_address.clone(),
             interchain_account_id: interchain_account_id.clone(),
             connection_id: connection_id.clone(),
             msgs: vec![vote_msg_stargate_msg],
             memo: "sent from contract".to_string(),
-            timeout: DEFAULT_TIMEOUT_SECONDS,
+            timeout: timeout,
         };
         let submittx_stargate_msg = CosmosMsg::Stargate {
             type_url: "/archway.interchaintxs.v1.MsgSubmitTx".to_string(),
@@ -134,27 +137,20 @@ pub mod query {
             connection_id: state.connection_id,
             ica_address: state.ica_address,
             voted: state.voted,
+            errors: state.errors,
+            timeout: state.timeout,
         })
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
-    match msg {
-        SudoMsg::OpenAck {
-            port_id,
-            channel_id,
-            counterparty_channel_id,
-            counterparty_version,
-        } => sudo::open_ack(
-            deps,
-            env,
-            port_id,
-            channel_id,
-            counterparty_channel_id,
-            counterparty_version,
-        ),
+    match msg { 
+        SudoMsg::OpenAck { port_id, channel_id, counterparty_channel_id, counterparty_version, } => sudo::open_ack(
+            deps, env, port_id, channel_id, counterparty_channel_id, counterparty_version,),
         SudoMsg::Response { request, data } => sudo::response(deps, request, data),
+        SudoMsg::Error { request, details } => sudo::error(deps, request, details),
+        SudoMsg::Timeout { request } => sudo::timeout(deps, request),
     }
 }
 
@@ -186,6 +182,22 @@ pub mod sudo {
             Ok(state)
         })?;
         Ok(Response::new().add_attribute("action", "did action"))
+    }
+
+    pub fn error(deps: DepsMut, _request: RequestPacket, details: String) -> Result<Response, ContractError> {
+        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+            state.errors = details;
+            Ok(state)
+        })?;
+        Ok(Response::new().add_attribute("action", "errored"))
+    }
+
+    pub fn timeout(deps: DepsMut, _request: RequestPacket) -> Result<Response, ContractError> {
+        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+            state.timeout = true;
+            Ok(state)
+        })?;
+        Ok(Response::new().add_attribute("action", "timeout"))
     }
 }
 

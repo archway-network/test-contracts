@@ -10,6 +10,8 @@ pub struct State {
     pub connection_id: String,
     pub ica_address: String,
     pub voted: bool,
+    pub errors: String,
+    pub timeout: bool,
 }
 
 pub const STATE: Item<State> = Item::new("state");
