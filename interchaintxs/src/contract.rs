@@ -45,7 +45,11 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Register {} => execute::register(deps.as_ref(), env),
-        ExecuteMsg::Vote { proposal_id, option, tiny_timeout} => execute::vote(deps.as_ref(), env,  proposal_id, option, tiny_timeout),
+        ExecuteMsg::Vote {
+            proposal_id,
+            option,
+            tiny_timeout,
+        } => execute::vote(deps.as_ref(), env, proposal_id, option, tiny_timeout),
     }
 }
 
@@ -82,7 +86,13 @@ pub mod execute {
             .add_message(register_stargate_msg))
     }
 
-    pub fn vote(deps: Deps, env: Env, proposal_id: u64, option: i32, tiny_timeout: bool) -> Result<Response, ContractError> {
+    pub fn vote(
+        deps: Deps,
+        env: Env,
+        proposal_id: u64,
+        option: i32,
+        tiny_timeout: bool,
+    ) -> Result<Response, ContractError> {
         let state = STATE.load(deps.storage)?;
         let connection_id = state.connection_id;
         let interchain_account_id = state.owner.to_string();
@@ -94,12 +104,16 @@ pub mod execute {
             voter: ica_address.clone(),
             option: option,
         };
-        
+
         let vote_msg_stargate_msg = prost_types::Any {
             type_url: "/cosmos.gov.v1.MsgVote".to_string(),
             value: vote_msg.encode_to_vec(),
         };
-        let timeout = if tiny_timeout { 1 } else { DEFAULT_TIMEOUT_SECONDS };
+        let timeout = if tiny_timeout {
+            1
+        } else {
+            DEFAULT_TIMEOUT_SECONDS
+        };
         let submittx_msg = MsgSubmitTx {
             from_address: from_address.clone(),
             interchain_account_id: interchain_account_id.clone(),
@@ -145,59 +159,55 @@ pub mod query {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
-    match msg { 
-        SudoMsg::OpenAck { port_id, channel_id, counterparty_channel_id, counterparty_version, } => sudo::open_ack(
-            deps, env, port_id, channel_id, counterparty_channel_id, counterparty_version,),
-        SudoMsg::Response { request, data } => sudo::response(deps, request, data),
-        SudoMsg::Error { request, details } => sudo::error(deps, request, details),
-        SudoMsg::Timeout { request } => sudo::timeout(deps, request),
+    match msg {
+        SudoMsg::Custodian { account_registered, tx_executed } => sudo::custodian(deps, env, account_registered, tx_executed),
+        SudoMsg::Error { failure, timeout } => sudo::failure(deps, env, failure, timeout),
     }
 }
 
 pub mod sudo {
-    use crate::msg::{OpenAckVersion, RequestPacket};
+    use crate::msg::{ICAResponse, OpenAck, OpenAckVersion};
 
     use super::*;
 
-    pub fn open_ack(
+    pub fn custodian(
         deps: DepsMut,
         _env: Env,
-        _port_id: String,
-        _channel_id: String,
-        _counterparty_channel_id: String,
-        counterparty_version: String,
+        open_ack_option: Option<OpenAck>,
+        response_option: Option<ICAResponse>,
     ) -> Result<Response, ContractError> {
         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            let open_ack_version: Result<OpenAckVersion, _> =
-                serde_json::from_str(&counterparty_version);
-            state.ica_address = open_ack_version.unwrap().address.clone();
+            if open_ack_option.is_some() {
+                let open_ack = open_ack_option.unwrap();
+                let open_ack_version: Result<OpenAckVersion, _> =
+                    serde_json::from_str(&open_ack.counterparty_version);
+                state.ica_address = open_ack_version.unwrap().address.clone();
+            } 
+            if response_option.is_some() {
+                state.voted = true;
+            }
             Ok(state)
         })?;
-        Ok(Response::new().add_attribute("action", "registered ica"))
+        Ok(Response::new())
     }
 
-    pub fn response(deps: DepsMut, _request: RequestPacket, _data: Binary) -> Result<Response, ContractError> {
+    pub fn failure(
+        deps: DepsMut,
+        _env: Env,
+        error_option: Option<crate::msg::Error>,
+        timeout_option: Option<crate::msg::Timeout>,
+    ) -> Result<Response, ContractError> {
         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            state.voted = true;
+            if error_option.is_some() {
+                let error = error_option.unwrap();
+                state.errors = error.details.clone();
+            } 
+            if timeout_option.is_some() {
+                state.timeout = true;
+            }
             Ok(state)
         })?;
-        Ok(Response::new().add_attribute("action", "did action"))
-    }
-
-    pub fn error(deps: DepsMut, _request: RequestPacket, details: String) -> Result<Response, ContractError> {
-        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            state.errors = details;
-            Ok(state)
-        })?;
-        Ok(Response::new().add_attribute("action", "errored"))
-    }
-
-    pub fn timeout(deps: DepsMut, _request: RequestPacket) -> Result<Response, ContractError> {
-        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            state.timeout = true;
-            Ok(state)
-        })?;
-        Ok(Response::new().add_attribute("action", "timeout"))
+        Ok(Response::new())
     }
 }
 
@@ -229,5 +239,50 @@ mod tests {
         assert_eq!("creator", value.owner);
         assert_eq!(false, value.voted);
         assert_eq!("", value.ica_address);
+    }       
+
+    #[test]
+    fn custodian() {
+        let mut deps = mock_dependencies();
+        let info = mock_info("creator", &coins(1000, "earth"));
+
+        let msg = InstantiateMsg {
+            connection_id: "connection_id".to_string(),
+        };
+        let _res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        let open_ack = crate::msg::OpenAck {
+            port_id: "port_id".to_string(),
+            channel_id: "channel_id".to_string(),
+            counterparty_channel_id: "counterparty_channel_id".to_string(),
+            counterparty_version: "{\"version\":\"ics27-1\",\"controller_connection_id\":\"connection-0\",\"host_connection_id\":\"connection-0\",\"address\":\"juno1hy7hr06h0jxtalwdehdkxdcnsscxr70v5fzq26nwvghnk4s0deyqld2dke\",\"encoding\":\"proto3\",\"tx_type\":\"sdk_multi_msg\"}".to_string(),
+        };
+        let msg = SudoMsg::Custodian { account_registered: Some(open_ack), tx_executed: None };
+        let res = sudo(deps.as_mut(), mock_env(), msg).unwrap();
+
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::DumpState {}).unwrap();
+        let value: GetDumpStateResponse = from_json(&res).unwrap();
+        assert_eq!("juno1hy7hr06h0jxtalwdehdkxdcnsscxr70v5fzq26nwvghnk4s0deyqld2dke".to_string(), value.ica_address);
+        assert_eq!(false, value.voted);
+
+        let tx_executed = crate::msg::ICAResponse {
+            packet: crate::msg::RequestPacket {
+                source_channel: Some("source_channel".to_string()),
+                source_port: Some("source_port".to_string()),
+                destination_channel: Some("destination_channel".to_string()),
+                destination_port: Some("destination_port".to_string()),
+                timeout_height: None,
+                timeout_timestamp: Some(0),
+                sequence: Some(0),
+                data: Some(Binary::from("data".as_bytes())),
+            },
+            data: Binary::from("data".as_bytes()),
+        };
+        let msg = SudoMsg::Custodian { account_registered: None, tx_executed: Some(tx_executed) };
+        let res = sudo(deps.as_mut(), mock_env(), msg).unwrap();
+
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::DumpState {}).unwrap();
+        let value: GetDumpStateResponse = from_json(&res).unwrap();
+        assert_eq!(true, value.voted);
     }
 }

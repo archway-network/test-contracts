@@ -36,23 +36,39 @@ pub struct GetDumpStateResponse {
 
 #[cw_serde]
 pub enum SudoMsg  {
-    OpenAck {
-        port_id: String,
-        channel_id: String,
-        counterparty_channel_id: String,
-        counterparty_version: String,
-    },
-    Response {
-        request: RequestPacket,
-        data: Binary,
+    Custodian {
+        account_registered: Option<OpenAck>,
+        tx_executed: Option<ICAResponse>,
     },
     Error {
-        request: RequestPacket,
-        details: String,
-    },
-    Timeout {
-        request: RequestPacket,
-    },
+        failure: Option<Error>,
+        timeout: Option<Timeout>,
+    }
+}
+
+#[cw_serde]
+pub struct OpenAck {
+    pub port_id: String,
+    pub channel_id: String,
+    pub counterparty_channel_id: String,
+    pub counterparty_version: String,
+}
+
+#[cw_serde]
+pub struct ICAResponse {
+    pub packet: RequestPacket,
+    pub data: Binary,
+}
+
+#[cw_serde]
+pub struct Error {
+    pub packet: RequestPacket,
+    pub details: String,
+}
+
+#[cw_serde]
+pub struct Timeout {
+    pub packet: RequestPacket,
 }
 
 #[cw_serde]
