@@ -161,7 +161,8 @@ pub mod query {
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
         SudoMsg::Custodian { account_registered, tx_executed } => sudo::custodian(deps, env, account_registered, tx_executed),
-        SudoMsg::Error { failure, timeout } => sudo::failure(deps, env, failure, timeout),
+        SudoMsg::Error { module_name, error_code, payload, error_message } => sudo::error(deps, env, module_name, error_code, payload, error_message),
+        //SudoMsg::Error { failure, timeout } => sudo::failure(deps, env, failure, timeout),
     }
 }
 
@@ -191,19 +192,37 @@ pub mod sudo {
         Ok(Response::new())
     }
 
-    pub fn failure(
-        deps: DepsMut,
-        _env: Env,
-        error_option: Option<crate::msg::Error>,
-        timeout_option: Option<crate::msg::Timeout>,
-    ) -> Result<Response, ContractError> {
+    // pub fn failure(
+    //     deps: DepsMut,
+    //     _env: Env,
+    //     error_option: Option<crate::msg::Error>,
+    //     timeout_option: Option<crate::msg::Timeout>,
+    // ) -> Result<Response, ContractError> {
+    //     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+    //         if error_option.is_some() {
+    //             let error = error_option.unwrap();
+    //             state.errors = error.details.clone();
+    //         } 
+    //         if timeout_option.is_some() {
+    //             state.timeout = true;
+    //         }
+    //         Ok(state)
+    //     })?;
+    //     Ok(Response::new())
+    // }
+
+    pub fn error(deps: DepsMut, _env: Env, module_name: String, error_code: u32, _payload: String, error_message: String) -> Result<Response, ContractError> {
         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            if error_option.is_some() {
-                let error = error_option.unwrap();
-                state.errors = error.details.clone();
-            } 
-            if timeout_option.is_some() {
-                state.timeout = true;
+            if module_name == "custodian" {
+                if error_code == 1 { // packet timeout error
+                    state.timeout = true;
+                }
+                if error_code == 2 { // submittx execution error
+                    state.errors = error_message;
+                }
+                else {
+                    // unknown error
+                }
             }
             Ok(state)
         })?;

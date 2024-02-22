@@ -41,8 +41,10 @@ pub enum SudoMsg  {
         tx_executed: Option<ICAResponse>,
     },
     Error {
-        failure: Option<Error>,
-        timeout: Option<Timeout>,
+        module_name: String,
+        error_code: u32,
+        payload: String,
+        error_message: String,
     }
 }
 
@@ -60,16 +62,16 @@ pub struct ICAResponse {
     pub data: Binary,
 }
 
-#[cw_serde]
-pub struct Error {
-    pub packet: RequestPacket,
-    pub details: String,
-}
+// #[cw_serde]
+// pub struct Error {
+//     pub packet: RequestPacket,
+//     pub details: String,
+// // }
 
-#[cw_serde]
-pub struct Timeout {
-    pub packet: RequestPacket,
-}
+// #[cw_serde]
+// pub struct Timeout {
+//     pub packet: RequestPacket,
+// }
 
 #[cw_serde]
 pub struct OpenAckVersion {
