@@ -205,23 +205,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "custodian"
-version = "0.1.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-storage-plus",
- "cw2",
- "prost",
- "prost-types",
- "schemars",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "cw-multi-test"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -278,6 +261,23 @@ dependencies = [
  "schemars",
  "semver",
  "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "cwica"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-storage-plus",
+ "cw2",
+ "prost",
+ "prost-types",
+ "schemars",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

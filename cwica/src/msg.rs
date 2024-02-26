@@ -36,7 +36,7 @@ pub struct GetDumpStateResponse {
 
 #[cw_serde]
 pub enum SudoMsg  {
-    Custodian {
+    Ica {
         account_registered: Option<OpenAck>,
         tx_executed: Option<ICAResponse>,
     },
@@ -61,17 +61,6 @@ pub struct ICAResponse {
     pub packet: RequestPacket,
     pub data: Binary,
 }
-
-// #[cw_serde]
-// pub struct Error {
-//     pub packet: RequestPacket,
-//     pub details: String,
-// // }
-
-// #[cw_serde]
-// pub struct Timeout {
-//     pub packet: RequestPacket,
-// }
 
 #[cw_serde]
 pub struct OpenAckVersion {

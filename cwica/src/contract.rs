@@ -8,7 +8,7 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
 use crate::state::{State, STATE};
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:custodian";
+const CONTRACT_NAME: &str = "crates.io:cwica";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60 * 60 * 24 * 7 * 2;
 
@@ -74,7 +74,7 @@ pub mod execute {
         };
 
         let register_stargate_msg = CosmosMsg::Stargate {
-            type_url: "/archway.custodian.v1.MsgRegisterInterchainAccount".to_string(),
+            type_url: "/archway.cwica.v1.MsgRegisterInterchainAccount".to_string(),
             value: Binary::from(prost::Message::encode_to_vec(&regsiter_msg)),
         };
 
@@ -123,7 +123,7 @@ pub mod execute {
             timeout: timeout,
         };
         let submittx_stargate_msg = CosmosMsg::Stargate {
-            type_url: "/archway.custodian.v1.MsgSubmitTx".to_string(),
+            type_url: "/archway.cwica.v1.MsgSubmitTx".to_string(),
             value: Binary::from(prost::Message::encode_to_vec(&submittx_msg)),
         };
         Ok(Response::new()
@@ -160,7 +160,7 @@ pub mod query {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
-        SudoMsg::Custodian { account_registered, tx_executed } => sudo::custodian(deps, env, account_registered, tx_executed),
+        SudoMsg::Ica { account_registered, tx_executed } => sudo::ica(deps, env, account_registered, tx_executed),
         SudoMsg::Error { module_name, error_code, input_payload, error_message } => sudo::error(deps, env, module_name, error_code, input_payload, error_message),
         //SudoMsg::Error { failure, timeout } => sudo::failure(deps, env, failure, timeout),
     }
@@ -171,7 +171,7 @@ pub mod sudo {
 
     use super::*;
 
-    pub fn custodian(
+    pub fn ica(
         deps: DepsMut,
         _env: Env,
         open_ack_option: Option<OpenAck>,
@@ -192,28 +192,9 @@ pub mod sudo {
         Ok(Response::new())
     }
 
-    // pub fn failure(
-    //     deps: DepsMut,
-    //     _env: Env,
-    //     error_option: Option<crate::msg::Error>,
-    //     timeout_option: Option<crate::msg::Timeout>,
-    // ) -> Result<Response, ContractError> {
-    //     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-    //         if error_option.is_some() {
-    //             let error = error_option.unwrap();
-    //             state.errors = error.details.clone();
-    //         } 
-    //         if timeout_option.is_some() {
-    //             state.timeout = true;
-    //         }
-    //         Ok(state)
-    //     })?;
-    //     Ok(Response::new())
-    // }
-
     pub fn error(deps: DepsMut, _env: Env, module_name: String, error_code: u32, _payload: String, error_message: String) -> Result<Response, ContractError> {
         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-            if module_name == "custodian" {
+            if module_name == "cwica" {
                 if error_code == 1 { // packet timeout error
                     state.timeout = true;
                 }
@@ -261,7 +242,7 @@ mod tests {
     }       
 
     #[test]
-    fn custodian() {
+    fn ica() {
         let mut deps = mock_dependencies();
         let info = mock_info("creator", &coins(1000, "earth"));
 
@@ -276,7 +257,7 @@ mod tests {
             counterparty_channel_id: "counterparty_channel_id".to_string(),
             counterparty_version: "{\"version\":\"ics27-1\",\"controller_connection_id\":\"connection-0\",\"host_connection_id\":\"connection-0\",\"address\":\"juno1hy7hr06h0jxtalwdehdkxdcnsscxr70v5fzq26nwvghnk4s0deyqld2dke\",\"encoding\":\"proto3\",\"tx_type\":\"sdk_multi_msg\"}".to_string(),
         };
-        let msg = SudoMsg::Custodian { account_registered: Some(open_ack), tx_executed: None };
+        let msg = SudoMsg::Ica { account_registered: Some(open_ack), tx_executed: None };
         let res = sudo(deps.as_mut(), mock_env(), msg).unwrap();
 
         let res = query(deps.as_ref(), mock_env(), QueryMsg::DumpState {}).unwrap();
@@ -297,7 +278,7 @@ mod tests {
             },
             data: Binary::from("data".as_bytes()),
         };
-        let msg = SudoMsg::Custodian { account_registered: None, tx_executed: Some(tx_executed) };
+        let msg = SudoMsg::Ica { account_registered: None, tx_executed: Some(tx_executed) };
         let res = sudo(deps.as_mut(), mock_env(), msg).unwrap();
 
         let res = query(deps.as_ref(), mock_env(), QueryMsg::DumpState {}).unwrap();

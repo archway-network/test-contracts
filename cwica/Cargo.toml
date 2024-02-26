@@ -1,5 +1,5 @@
 [package]
-name = "custodian"
+name = "cwica"
 version = "0.1.0"
 authors = ["Spoorthi <spoorthi.satheesha@philabs.xyz>"]
 edition = "2021"

@@ -1,6 +1,6 @@
 use cosmwasm_schema::write_api;
 
-use custodian::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use cwica::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {
