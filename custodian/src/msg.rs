@@ -43,7 +43,7 @@ pub enum SudoMsg  {
     Error {
         module_name: String,
         error_code: u32,
-        payload: String,
+        input_payload: String,
         error_message: String,
     }
 }

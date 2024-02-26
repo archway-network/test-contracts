@@ -161,7 +161,7 @@ pub mod query {
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
         SudoMsg::Custodian { account_registered, tx_executed } => sudo::custodian(deps, env, account_registered, tx_executed),
-        SudoMsg::Error { module_name, error_code, payload, error_message } => sudo::error(deps, env, module_name, error_code, payload, error_message),
+        SudoMsg::Error { module_name, error_code, input_payload, error_message } => sudo::error(deps, env, module_name, error_code, input_payload, error_message),
         //SudoMsg::Error { failure, timeout } => sudo::failure(deps, env, failure, timeout),
     }
 }
