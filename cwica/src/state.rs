@@ -24,8 +24,6 @@ pub struct MsgRegisterInterchainAccount {
     pub from_address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub connection_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub interchain_account_id: ::prost::alloc::string::String,
 }
 
 /// MsgSubmitTx defines the payload for Msg/SubmitTx
@@ -35,14 +33,12 @@ pub struct MsgSubmitTx {
     #[prost(string, tag = "1")]
     pub from_address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
-    pub interchain_account_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
     pub connection_id: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "4")]
+    #[prost(message, repeated, tag = "3")]
     pub msgs: ::prost::alloc::vec::Vec<::prost_types::Any>,
-    #[prost(string, tag = "5")]
+    #[prost(string, tag = "4")]
     pub memo: ::prost::alloc::string::String,
-    #[prost(uint64, tag = "6")]
+    #[prost(uint64, tag = "5")]
     pub timeout: u64,
 }
 

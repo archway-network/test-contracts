@@ -65,12 +65,10 @@ pub mod execute {
         let from_address = env.contract.address.to_string();
         let state = STATE.load(deps.storage)?;
         let connection_id = state.connection_id;
-        let interchain_account_id = state.owner.to_string();
 
         let regsiter_msg = MsgRegisterInterchainAccount {
             from_address: from_address.clone(),
             connection_id: connection_id.clone(),
-            interchain_account_id: interchain_account_id.clone(),
         };
 
         let register_stargate_msg = CosmosMsg::Stargate {
@@ -82,7 +80,6 @@ pub mod execute {
             .add_attribute("action", "register")
             .add_attribute("account_owner", from_address)
             .add_attribute("connection_id", connection_id)
-            .add_attribute("interchain_account_id", interchain_account_id)
             .add_message(register_stargate_msg))
     }
 
@@ -95,7 +92,6 @@ pub mod execute {
     ) -> Result<Response, ContractError> {
         let state = STATE.load(deps.storage)?;
         let connection_id = state.connection_id;
-        let interchain_account_id = state.owner.to_string();
         let from_address = env.contract.address.to_string();
         let ica_address = state.ica_address;
 
@@ -116,7 +112,6 @@ pub mod execute {
         };
         let submittx_msg = MsgSubmitTx {
             from_address: from_address.clone(),
-            interchain_account_id: interchain_account_id.clone(),
             connection_id: connection_id.clone(),
             msgs: vec![vote_msg_stargate_msg],
             memo: "sent from contract".to_string(),
