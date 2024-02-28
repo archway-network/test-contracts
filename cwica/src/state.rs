@@ -26,10 +26,10 @@ pub struct MsgRegisterInterchainAccount {
     pub connection_id: ::prost::alloc::string::String,
 }
 
-/// MsgSubmitTx defines the payload for Msg/SubmitTx
+/// MsgSendTx defines the payload for Msg/SendTx
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MsgSubmitTx {
+pub struct MsgSendTx {
     #[prost(string, tag = "1")]
     pub from_address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]

@@ -57,7 +57,7 @@ pub mod execute {
     use cosmwasm_std::CosmosMsg;
     use prost::Message;
 
-    use crate::state::{MsgRegisterInterchainAccount, MsgSubmitTx, MsgVote};
+    use crate::state::{MsgRegisterInterchainAccount, MsgSendTx, MsgVote};
 
     use super::*;
 
@@ -110,7 +110,7 @@ pub mod execute {
         } else {
             DEFAULT_TIMEOUT_SECONDS
         };
-        let submittx_msg = MsgSubmitTx {
+        let submittx_msg = MsgSendTx {
             from_address: from_address.clone(),
             connection_id: connection_id.clone(),
             msgs: vec![vote_msg_stargate_msg],
