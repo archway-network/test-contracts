@@ -37,7 +37,7 @@ pub struct GetDumpStateResponse {
 #[cw_serde]
 pub enum SudoMsg  {
     Ica {
-        account_registered: Option<OpenAck>,
+        account_registered: Option<AccountRegistered>,
         tx_executed: Option<ICAResponse>,
     },
     Error {
@@ -49,27 +49,14 @@ pub enum SudoMsg  {
 }
 
 #[cw_serde]
-pub struct OpenAck {
-    pub port_id: String,
-    pub channel_id: String,
-    pub counterparty_channel_id: String,
-    pub counterparty_version: String,
+pub struct AccountRegistered {
+    pub counterparty_address: String,
 }
 
 #[cw_serde]
 pub struct ICAResponse {
     pub packet: RequestPacket,
     pub data: Binary,
-}
-
-#[cw_serde]
-pub struct OpenAckVersion {
-    pub version: String,
-    pub controller_connection_id: String,
-    pub host_connection_id: String,
-    pub address: String,
-    pub encoding: String,
-    pub tx_type: String,
 }
 
 #[cw_serde]

@@ -21,7 +21,7 @@ pub const STATE: Item<State> = Item::new("state");
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MsgRegisterInterchainAccount {
     #[prost(string, tag = "1")]
-    pub from_address: ::prost::alloc::string::String,
+    pub contract_address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub connection_id: ::prost::alloc::string::String,
 }
@@ -31,7 +31,7 @@ pub struct MsgRegisterInterchainAccount {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MsgSendTx {
     #[prost(string, tag = "1")]
-    pub from_address: ::prost::alloc::string::String,
+    pub contract_address: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub connection_id: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "3")]
